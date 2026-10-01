@@ -1,20 +1,56 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+
+import LoginScreen from "./screens/LoginScreen";
+import RegisterScreen from "./screens/RegisterScreen";
+import HomeScreen from "./screens/HomeScreen";
+import ApartmentDetailsScreen from "./screens/ApartmentDetailsScreen";
+import BookingScreen from "./screens/BookingScreen";
+import PaymentScreen from "./screens/PaymentScreen";
+import ProfileScreen from "./screens/ProfileScreen";
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Login">
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+        />
+
+        <Stack.Screen
+          name="Register"
+          component={RegisterScreen}
+        />
+
+        <Stack.Screen
+          name="Home"
+          component={HomeScreen}
+        />
+
+        <Stack.Screen
+          name="ApartmentDetails"
+          component={ApartmentDetailsScreen}
+        />
+
+        <Stack.Screen
+          name="Booking"
+          component={BookingScreen}
+        />
+
+        <Stack.Screen
+          name="Payment"
+          component={PaymentScreen}
+        />
+
+        <Stack.Screen
+          name="Profile"
+          component={ProfileScreen}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
