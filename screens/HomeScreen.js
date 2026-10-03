@@ -51,15 +51,15 @@ export default function HomeScreen({ navigation }) {
     return (
       <TouchableOpacity
         style={styles.card}
-        activeOpacity={0.85}
+        activeOpacity={0.9}
         onPress={() =>
           navigation.navigate("ApartmentDetails", {
             apartment: item,
           })
         }
       >
-        {/* Apartment Image */}
-        <View style={styles.imageContainer}>
+        {/* APARTMENT IMAGE */}
+        <View style={styles.imageWrapper}>
           {item.image_url ? (
             <Image
               source={{ uri: item.image_url }}
@@ -67,65 +67,117 @@ export default function HomeScreen({ navigation }) {
               resizeMode="cover"
             />
           ) : (
-            <View style={styles.houseCircle}>
-              <Feather name="home" size={38} color="#2563EB" />
+            <View style={styles.imagePlaceholder}>
+              <Feather
+                name="home"
+                size={42}
+                color="#2563EB"
+              />
             </View>
           )}
 
-          {/* Available Badge */}
+          {/* IMAGE OVERLAY */}
+          <View style={styles.imageOverlay} />
+
+          {/* AVAILABLE BADGE */}
           <View style={styles.availableBadge}>
             <View style={styles.availableDot} />
-            <Text style={styles.availableText}>Available</Text>
+
+            <Text style={styles.availableText}>
+              Available
+            </Text>
+          </View>
+
+          {/* PRICE ON IMAGE */}
+          <View style={styles.imagePrice}>
+            <Text style={styles.imagePriceText}>
+              ₱{Number(item.price).toLocaleString()}
+            </Text>
+
+            <Text style={styles.imagePriceMonth}>
+              /mo
+            </Text>
           </View>
         </View>
 
-        {/* Apartment Information */}
+        {/* APARTMENT INFORMATION */}
         <View style={styles.cardContent}>
-          <Text style={styles.apartmentTitle} numberOfLines={1}>
+          <Text
+            style={styles.apartmentTitle}
+            numberOfLines={1}
+          >
             {item.title}
           </Text>
 
+          {/* LOCATION */}
           <View style={styles.locationRow}>
-            <Feather name="map-pin" size={15} color="#777" />
+            <Feather
+              name="map-pin"
+              size={14}
+              color="#2563EB"
+            />
 
-            <Text style={styles.locationText} numberOfLines={1}>
+            <Text
+              style={styles.locationText}
+              numberOfLines={1}
+            >
               {item.location}
             </Text>
           </View>
 
-          <View style={styles.detailsRow}>
-            <View style={styles.detailItem}>
-              <Feather name="home" size={15} color="#555" />
+          {/* FEATURES */}
+          <View style={styles.featuresRow}>
+            <View style={styles.featureChip}>
+              <Feather
+                name="home"
+                size={14}
+                color="#2563EB"
+              />
 
-              <Text style={styles.detailText}>
-                {item.bedrooms} Bedroom
-                {item.bedrooms !== 1 ? "s" : ""}
+              <Text style={styles.featureText}>
+                {item.bedrooms}{" "}
+                {item.bedrooms === 1
+                  ? "Bedroom"
+                  : "Bedrooms"}
               </Text>
             </View>
 
-            <View style={styles.detailItem}>
-              <Feather name="droplet" size={15} color="#555" />
+            <View style={styles.featureChip}>
+              <Feather
+                name="droplet"
+                size={14}
+                color="#2563EB"
+              />
 
-              <Text style={styles.detailText}>
-                {item.bathrooms} Bathroom
-                {item.bathrooms !== 1 ? "s" : ""}
+              <Text style={styles.featureText}>
+                {item.bathrooms}{" "}
+                {item.bathrooms === 1
+                  ? "Bath"
+                  : "Baths"}
               </Text>
             </View>
           </View>
 
-          <View style={styles.bottomRow}>
+          {/* CARD BOTTOM */}
+          <View style={styles.cardBottom}>
             <View>
-              <Text style={styles.priceLabel}>Monthly Rent</Text>
+              <Text style={styles.monthlyLabel}>
+                Monthly rent
+              </Text>
 
-              <Text style={styles.price}>
+              <Text style={styles.cardPrice}>
                 ₱{Number(item.price).toLocaleString()}
               </Text>
             </View>
 
-            <View style={styles.arrowButton}>
+            <View style={styles.viewButton}>
+              <Text style={styles.viewButtonText}>
+                View
+              </Text>
+
               <Feather
-                name="arrow-right"
-                size={19}
+                name="arrow-up-right"
+                size={17}
                 color="#FFFFFF"
               />
             </View>
@@ -135,27 +187,32 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
+  /* LOADING SCREEN */
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <StatusBar barStyle="dark-content" />
 
-        <View style={styles.loadingIcon}>
-          <Feather name="home" size={38} color="#2563EB" />
+        <View style={styles.loadingLogo}>
+          <Feather
+            name="home"
+            size={34}
+            color="#FFFFFF"
+          />
         </View>
 
         <ActivityIndicator
-          size="large"
+          size="small"
           color="#2563EB"
           style={styles.loader}
         />
 
         <Text style={styles.loadingTitle}>
-          Finding apartments...
+          Finding your next home
         </Text>
 
         <Text style={styles.loadingSubtitle}>
-          Please wait while we load available apartments.
+          Loading available apartments...
         </Text>
       </View>
     );
@@ -163,7 +220,10 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#F7F9FC"
+      />
 
       <FlatList
         data={apartments}
@@ -181,53 +241,69 @@ export default function HomeScreen({ navigation }) {
         }
         ListHeaderComponent={
           <View>
-            {/* Header */}
+            {/* HEADER */}
             <View style={styles.header}>
               <View>
-                <Text style={styles.smallGreeting}>
-                  WELCOME BACK
+                <Text style={styles.greeting}>
+                  GOOD DAY 👋
                 </Text>
 
                 <Text style={styles.headerTitle}>
-                  Find Your Next Home
+                  Find your next home
                 </Text>
               </View>
 
               <TouchableOpacity
                 style={styles.profileButton}
-                onPress={() => navigation.navigate("Profile")}
+                onPress={() =>
+                  navigation.navigate("Profile")
+                }
                 activeOpacity={0.8}
               >
                 <Feather
                   name="user"
                   size={21}
-                  color="#2563EB"
+                  color="#172033"
                 />
               </TouchableOpacity>
             </View>
 
-            {/* Intro Card */}
-            <View style={styles.introCard}>
-              <View style={styles.introIcon}>
-                <Feather
-                  name="home"
-                  size={25}
-                  color="#FFFFFF"
-                />
-              </View>
+            {/* HERO CARD */}
+            <View style={styles.heroCard}>
+              <View style={styles.heroContent}>
+                <View style={styles.heroIcon}>
+                  <Feather
+                    name="home"
+                    size={21}
+                    color="#FFFFFF"
+                  />
+                </View>
 
-              <View style={styles.introTextContainer}>
-                <Text style={styles.introTitle}>
-                  Your next apartment is here
+                <Text style={styles.heroTitle}>
+                  Comfortable living,
+                  {"\n"}
+                  made simple.
                 </Text>
 
-                <Text style={styles.introSubtitle}>
-                  Browse comfortable homes available for rent.
+                <Text style={styles.heroSubtitle}>
+                  Discover apartments that fit
+                  your lifestyle and budget.
                 </Text>
               </View>
+
+              <View style={styles.heroDecorationOne} />
+
+              <View style={styles.heroDecorationTwo} />
+
+              <Feather
+                name="home"
+                size={100}
+                color="rgba(255,255,255,0.08)"
+                style={styles.heroHomeIcon}
+              />
             </View>
 
-            {/* Section Header */}
+            {/* APARTMENT SECTION */}
             <View style={styles.sectionHeader}>
               <View>
                 <Text style={styles.sectionTitle}>
@@ -235,8 +311,7 @@ export default function HomeScreen({ navigation }) {
                 </Text>
 
                 <Text style={styles.sectionSubtitle}>
-                  {apartments.length} apartment
-                  {apartments.length !== 1 ? "s" : ""} available
+                  Choose a place that feels like home
                 </Text>
               </View>
 
@@ -254,7 +329,7 @@ export default function HomeScreen({ navigation }) {
               <Feather
                 name="home"
                 size={40}
-                color="#999"
+                color="#2563EB"
               />
             </View>
 
@@ -263,17 +338,18 @@ export default function HomeScreen({ navigation }) {
             </Text>
 
             <Text style={styles.emptyText}>
-              There are currently no available apartments.
-              Please check again later.
+              There are currently no apartments
+              available for rent.
             </Text>
 
             <TouchableOpacity
               style={styles.refreshButton}
               onPress={loadApartments}
+              activeOpacity={0.85}
             >
               <Feather
                 name="refresh-cw"
-                size={17}
+                size={16}
                 color="#FFFFFF"
               />
 
@@ -295,117 +371,162 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 30,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 35,
   },
+
+  /* HEADER */
 
   header: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 22,
+    alignItems: "center",
+    marginBottom: 20,
   },
 
-  smallGreeting: {
-    fontSize: 12,
-    fontWeight: "700",
+  greeting: {
+    fontSize: 11,
+    fontWeight: "800",
     color: "#2563EB",
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     marginBottom: 5,
   },
 
   headerTitle: {
-    fontSize: 25,
+    fontSize: 26,
     fontWeight: "800",
-    color: "#1F2937",
+    color: "#172033",
   },
 
   profileButton: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: "#EAF1FF",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#D7E4FF",
+    borderColor: "#E5E9F0",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
   },
 
-  introCard: {
-    flexDirection: "row",
-    alignItems: "center",
+  /* HERO */
+
+  heroCard: {
+    height: 190,
     backgroundColor: "#2563EB",
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 24,
+    overflow: "hidden",
+    position: "relative",
     marginBottom: 28,
   },
 
-  introIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 15,
-    backgroundColor: "rgba(255,255,255,0.18)",
+  heroContent: {
+    padding: 21,
+    width: "78%",
+    zIndex: 2,
+  },
+
+  heroIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,255,255,0.17)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 14,
+    marginBottom: 14,
   },
 
-  introTextContainer: {
-    flex: 1,
-  },
-
-  introTitle: {
+  heroTitle: {
     color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-    marginBottom: 4,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: "800",
   },
 
-  introSubtitle: {
-    color: "#DCE8FF",
-    fontSize: 13,
-    lineHeight: 19,
+  heroSubtitle: {
+    color: "#DDE9FF",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 8,
   },
+
+  heroHomeIcon: {
+    position: "absolute",
+    right: -12,
+    bottom: -15,
+  },
+
+  heroDecorationOne: {
+    position: "absolute",
+    width: 115,
+    height: 115,
+    borderRadius: 58,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    right: 15,
+    top: -45,
+  },
+
+  heroDecorationTwo: {
+    position: "absolute",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    right: 85,
+    bottom: -35,
+  },
+
+  /* APARTMENT SECTION */
 
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 14,
   },
 
   sectionTitle: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#1F2937",
+    color: "#172033",
   },
 
   sectionSubtitle: {
-    fontSize: 13,
-    color: "#777",
+    fontSize: 12,
+    color: "#8A92A3",
     marginTop: 4,
   },
 
   countBadge: {
     minWidth: 38,
     height: 38,
-    paddingHorizontal: 10,
     borderRadius: 19,
     backgroundColor: "#EAF1FF",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
   },
 
   countText: {
     color: "#2563EB",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
 
+  /* APARTMENT CARD */
+
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
+    borderRadius: 22,
     marginBottom: 18,
     overflow: "hidden",
     borderWidth: 1,
@@ -414,17 +535,15 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
+    shadowOpacity: 0.07,
+    shadowRadius: 7,
   },
 
-  imageContainer: {
-    height: 190,
+  imageWrapper: {
+    height: 215,
     backgroundColor: "#EAF1FF",
-    alignItems: "center",
-    justifyContent: "center",
     position: "relative",
   },
 
@@ -433,33 +552,31 @@ const styles = StyleSheet.create({
     height: "100%",
   },
 
-  houseCircle: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    backgroundColor: "#FFFFFF",
+  imagePlaceholder: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  imageOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 80,
+    backgroundColor: "rgba(0,0,0,0.14)",
   },
 
   availableBadge: {
     position: "absolute",
     top: 14,
-    right: 14,
+    left: 14,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255,255,255,0.96)",
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 20,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
 
   availableDot: {
@@ -471,9 +588,36 @@ const styles = StyleSheet.create({
   },
 
   availableText: {
-    color: "#333",
+    color: "#172033",
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "800",
+  },
+
+  imagePrice: {
+    position: "absolute",
+    bottom: 14,
+    left: 14,
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+
+  imagePriceText: {
+    color: "#FFFFFF",
+    fontSize: 21,
+    fontWeight: "800",
+    textShadowColor: "rgba(0,0,0,0.35)",
+    textShadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    textShadowRadius: 3,
+  },
+
+  imagePriceMonth: {
+    color: "#F0F4FF",
+    fontSize: 11,
+    fontWeight: "600",
+    marginLeft: 3,
   },
 
   cardContent: {
@@ -481,10 +625,10 @@ const styles = StyleSheet.create({
   },
 
   apartmentTitle: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: "800",
-    color: "#1F2937",
-    marginBottom: 8,
+    color: "#172033",
+    marginBottom: 7,
   },
 
   locationRow: {
@@ -494,108 +638,123 @@ const styles = StyleSheet.create({
   },
 
   locationText: {
-    fontSize: 13,
-    color: "#777",
-    marginLeft: 6,
     flex: 1,
+    color: "#7B8494",
+    fontSize: 13,
+    marginLeft: 6,
   },
 
-  detailsRow: {
+  featuresRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 17,
   },
 
-  detailItem: {
+  featureChip: {
     flexDirection: "row",
     alignItems: "center",
-    marginRight: 18,
+    backgroundColor: "#F3F6FC",
+    borderRadius: 9,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    marginRight: 8,
   },
 
-  detailText: {
-    color: "#555",
-    fontSize: 13,
-    marginLeft: 6,
+  featureText: {
+    color: "#4B5563",
+    fontSize: 11,
+    fontWeight: "600",
+    marginLeft: 5,
   },
 
-  bottomRow: {
+  cardBottom: {
+    borderTopWidth: 1,
+    borderTopColor: "#EEF0F3",
+    paddingTop: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: "#F0F1F3",
-    paddingTop: 14,
   },
 
-  priceLabel: {
-    fontSize: 11,
-    color: "#888",
+  monthlyLabel: {
+    color: "#8A92A3",
+    fontSize: 10,
     marginBottom: 3,
   },
 
-  price: {
+  cardPrice: {
+    color: "#2563EB",
     fontSize: 20,
     fontWeight: "800",
-    color: "#2563EB",
   },
 
-  arrowButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  viewButton: {
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     backgroundColor: "#2563EB",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
+
+  viewButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
+    marginRight: 5,
+  },
+
+  /* LOADING */
 
   loadingContainer: {
     flex: 1,
     backgroundColor: "#F7F9FC",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 35,
+    paddingHorizontal: 30,
   },
 
-  loadingIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#EAF1FF",
+  loadingLogo: {
+    width: 75,
+    height: 75,
+    borderRadius: 23,
+    backgroundColor: "#2563EB",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 18,
   },
 
   loader: {
-    marginBottom: 15,
+    marginBottom: 14,
   },
 
   loadingTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    color: "#1F2937",
-    marginBottom: 7,
+    fontWeight: "800",
+    color: "#172033",
+    marginBottom: 5,
   },
 
   loadingSubtitle: {
+    color: "#8A92A3",
     fontSize: 13,
-    color: "#777",
-    textAlign: "center",
-    lineHeight: 19,
   },
+
+  /* EMPTY */
 
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 55,
+    paddingVertical: 60,
     paddingHorizontal: 25,
   },
 
   emptyIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#EDEFF3",
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    backgroundColor: "#EAF1FF",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
@@ -604,32 +763,32 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 19,
     fontWeight: "800",
-    color: "#333",
+    color: "#172033",
     marginBottom: 8,
   },
 
   emptyText: {
+    color: "#8A92A3",
     fontSize: 13,
-    color: "#777",
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 20,
   },
 
   refreshButton: {
+    backgroundColor: "#2563EB",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2563EB",
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 12,
   },
 
   refreshButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-    marginLeft: 8,
+    fontSize: 13,
+    fontWeight: "800",
+    marginLeft: 7,
   },
 });
