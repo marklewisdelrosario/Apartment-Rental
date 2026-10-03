@@ -12,12 +12,15 @@ import {
 } from "react-native";
 
 import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../services/supabase";
 
 const { width } = Dimensions.get("window");
 
 export default function ApartmentDetailsScreen({ route, navigation }) {
   const { apartment } = route.params;
+
+  const insets = useSafeAreaInsets();
 
   const [images, setImages] = useState([]);
   const [currentImage, setCurrentImage] = useState(0);
@@ -37,7 +40,6 @@ export default function ApartmentDetailsScreen({ route, navigation }) {
     if (error) {
       console.log("Image error:", error.message);
 
-      // Fallback to the main apartment image
       if (apartment.image_url) {
         setImages([
           {
@@ -77,7 +79,10 @@ export default function ApartmentDetailsScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#F7F9FC"
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -91,6 +96,7 @@ export default function ApartmentDetailsScreen({ route, navigation }) {
                 size="large"
                 color="#2563EB"
               />
+
               <Text style={styles.loadingText}>
                 Loading apartment photos...
               </Text>
@@ -207,7 +213,9 @@ export default function ApartmentDetailsScreen({ route, navigation }) {
               </Text>
 
               <View style={styles.priceRow}>
-                <Text style={styles.currency}>₱</Text>
+                <Text style={styles.currency}>
+                  ₱
+                </Text>
 
                 <Text style={styles.price}>
                   {Number(apartment.price).toLocaleString()}
@@ -338,13 +346,24 @@ export default function ApartmentDetailsScreen({ route, navigation }) {
             />
           </View>
 
-          {/* EXTRA SPACE FOR BOTTOM BUTTON */}
-          <View style={{ height: 120 }} />
+          {/* SPACE FOR FIXED BOOKING BAR */}
+          <View
+            style={{
+              height: 115 + insets.bottom,
+            }}
+          />
         </View>
       </ScrollView>
 
       {/* BOTTOM BOOKING BAR */}
-      <View style={styles.bottomBar}>
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            paddingBottom: Math.max(insets.bottom + 10, 18),
+          },
+        ]}
+      >
         <View style={styles.bottomPrice}>
           <Text style={styles.bottomPriceLabel}>
             Monthly Rent
@@ -388,6 +407,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
+
+  /* =========================
+     IMAGE GALLERY
+  ========================= */
 
   galleryContainer: {
     width: "100%",
@@ -480,6 +503,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
 
+  /* =========================
+     MAIN CONTENT
+  ========================= */
+
   content: {
     paddingHorizontal: 18,
     paddingTop: 20,
@@ -537,6 +564,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  /* =========================
+     PRICE
+  ========================= */
+
   priceCard: {
     marginTop: 20,
     padding: 18,
@@ -588,6 +619,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  /* =========================
+     SECTION TITLES
+  ========================= */
+
   sectionTitle: {
     marginTop: 24,
     marginBottom: 11,
@@ -595,6 +630,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#172033",
   },
+
+  /* =========================
+     PROPERTY FEATURES
+  ========================= */
 
   featuresCard: {
     backgroundColor: "#FFFFFF",
@@ -639,6 +678,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#E5E7EB",
   },
 
+  /* =========================
+     DESCRIPTION
+  ========================= */
+
   descriptionCard: {
     backgroundColor: "#FFFFFF",
     padding: 18,
@@ -651,6 +694,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
   },
+
+  /* =========================
+     LOCATION
+  ========================= */
 
   locationCard: {
     backgroundColor: "#FFFFFF",
@@ -687,19 +734,38 @@ const styles = StyleSheet.create({
     color: "#172033",
   },
 
+  /* =========================
+     FIXED BOOKING BAR
+  ========================= */
+
   bottomBar: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
+
     backgroundColor: "#FFFFFF",
+
     paddingHorizontal: 18,
     paddingTop: 12,
-    paddingBottom: 22,
+
     borderTopWidth: 1,
     borderTopColor: "#E8EBF0",
+
     flexDirection: "row",
     alignItems: "center",
+
+    elevation: 10,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -3,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+
+    zIndex: 100,
   },
 
   bottomPrice: {
