@@ -11,6 +11,7 @@ import {
   Platform,
 } from "react-native";
 
+import { Feather } from "@expo/vector-icons";
 import { supabase } from "../services/supabase";
 
 export default function LoginScreen({ navigation }) {
@@ -47,6 +48,7 @@ export default function LoginScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         <Text style={styles.logo}>🏠</Text>
 
@@ -77,15 +79,20 @@ export default function LoginScreen({ navigation }) {
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
 
           <TouchableOpacity
             style={styles.eyeButton}
             onPress={() => setShowPassword(!showPassword)}
+            activeOpacity={0.6}
           >
-            <Text style={styles.eye}>
-              {showPassword ? "🙈" : "👁️"}
-            </Text>
+            <Feather
+              name={showPassword ? "eye" : "eye-off"}
+              size={22}
+              color="#777"
+            />
           </TouchableOpacity>
         </View>
 
@@ -93,6 +100,7 @@ export default function LoginScreen({ navigation }) {
         <TouchableOpacity
           style={styles.button}
           onPress={handleLogin}
+          activeOpacity={0.8}
         >
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
@@ -100,6 +108,7 @@ export default function LoginScreen({ navigation }) {
         {/* Register Link */}
         <TouchableOpacity
           onPress={() => navigation.navigate("Register")}
+          activeOpacity={0.7}
         >
           <Text style={styles.registerText}>
             Don't have an account? Register
@@ -132,6 +141,7 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: "bold",
     textAlign: "center",
+    color: "#222",
   },
 
   subtitle: {
@@ -143,17 +153,19 @@ const styles = StyleSheet.create({
   },
 
   input: {
+    height: 52,
     backgroundColor: "#FFF",
     borderWidth: 1,
     borderColor: "#DDD",
     borderRadius: 10,
-    padding: 15,
+    paddingHorizontal: 15,
     marginBottom: 15,
     fontSize: 16,
     color: "#222",
   },
 
   passwordContainer: {
+    height: 52,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFF",
@@ -165,25 +177,26 @@ const styles = StyleSheet.create({
 
   passwordInput: {
     flex: 1,
-    padding: 15,
+    height: 52,
+    paddingHorizontal: 15,
     fontSize: 16,
     color: "#222",
   },
 
   eyeButton: {
-    padding: 12,
-  },
-
-  eye: {
-    fontSize: 20,
+    width: 50,
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   button: {
     backgroundColor: "#2563EB",
-    padding: 16,
+    height: 52,
     borderRadius: 10,
     alignItems: "center",
-    marginTop: 5,
+    justifyContent: "center",
+    marginTop: 2,
   },
 
   buttonText: {
