@@ -1,875 +1,1165 @@
 import React, { useEffect, useState } from "react";
+
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   TextInput,
-  Image,
-  Alert,
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
   ActivityIndicator,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
+
 import { Feather } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { supabase } from "../services/supabase";
+import { showAlert } from "../services/alert";
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const nameRegex = /^[A-Za-zÀ-ÿ\s'-]+$/;
+
+const PasswordInput = ({
+  value,
+  setValue,
+  visible,
+  setVisible,
+  icon,
+  placeholder,
+  autoFocus = false,
+}) => (
+  <View style={[styles.inputBox, styles.passwordInputBox]}>
+    <Feather name={icon} size={17} color="#8995A6" />
+
+    <TextInput
+      value={value}
+      onChangeText={setValue}
+      placeholder={placeholder}
+      placeholderTextColor="#A0A9B5"
+      secureTextEntry={!visible}
+      style={styles.input}
+      autoFocus={autoFocus}
+      autoCapitalize="none"
+      autoCorrect={false}
+      autoComplete="off"
+      textContentType="none"
+      importantForAutofill="no"
+    />
+
+    <Pressable
+      style={styles.eyeButton}
+      onPress={() => setVisible((value) => !value)}
+    >
+      <Feather
+        name={visible ? "eye-off" : "eye"}
+        size={18}
+        color="#8995A6"
+      />
+    </Pressable>
+  </View>
+);
 
 export default function ProfileScreen({ navigation }) {
-  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isWeb = width >= 768;
 
-  const [p, setP] = useState(null);
-  const [edit, setEdit] = useState(false);
+  const [profile, setProfile] = useState(null);
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("09");
-  const [pass, setPass] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [show, setShow] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [editingSection, setEditingSection] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    load();
+    loadProfile();
   }, []);
 
-  const load = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      const profile = data || {
-        full_name: user.user_metadata?.full_name || "Tenant",
-        email: user.email,
-        phone: "09",
-        avatar_url: null,
-      };
-
-      setP(profile);
-      setName(profile.full_name || "");
-
-      const savedPhone = (profile.phone || "").replace(/\D/g, "");
-
-      setPhone(
-        savedPhone.startsWith("09")
-          ? savedPhone.slice(0, 11)
-          : "09"
-      );
-    } catch {
-      Alert.alert("Error", "Unable to load profile.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const photo = async () => {
-    try {
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) {
-        Alert.alert("Error", "Photo permission is required.");
-        return;
-      }
-
-      const result =
-        await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.8,
-        });
-
-      if (result.canceled) return;
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      const response = await fetch(result.assets[0].uri);
-      const buffer = await response.arrayBuffer();
-      const path = `${user.id}/profile.jpg`;
-
-      const { error } = await supabase.storage
-        .from("profile-images")
-        .upload(path, buffer, {
-          contentType: "image/jpeg",
-          upsert: true,
-        });
-
-      if (error) throw error;
-
-      const { data } = supabase.storage
-        .from("profile-images")
-        .getPublicUrl(path);
-
-      const url = `${data.publicUrl}?t=${Date.now()}`;
-
-      const { data: updated, error: updateError } =
-        await supabase
-          .from("profiles")
-          .update({ avatar_url: url })
-          .eq("id", user.id)
-          .select()
-          .single();
-
-      if (updateError) throw updateError;
-
-      setP(updated);
-
-      Alert.alert("Success", "Photo updated.");
-    } catch {
-      Alert.alert("Error", "Unable to update photo.");
-    }
-  };
-
-  const save = async () => {
-    const cleanPhone = phone.replace(/\D/g, "").slice(0, 11);
-
-    const nameChanged =
-      name.trim() !== (p?.full_name || "").trim();
-
-    const phoneChanged =
-      cleanPhone !== (p?.phone || "").trim();
-
-    const passwordChanged = pass.length > 0;
-
-    if (
-      !nameChanged &&
-      !phoneChanged &&
-      !passwordChanged
-    ) {
-      Alert.alert(
-        "No Changes",
-        "You haven't made any changes."
-      );
-      return;
-    }
-
-    if (!name.trim()) {
-      Alert.alert("Error", "Name is required.");
-      return;
-    }
-
-    if (!/^09\d{9}$/.test(cleanPhone)) {
-      Alert.alert(
-        "Error",
-        "Phone number must be exactly 11 digits and start with 09."
-      );
-      return;
-    }
-
-    if (passwordChanged) {
-      if (pass.length < 6) {
-        Alert.alert(
-          "Error",
-          "Password must be at least 6 characters."
-        );
-        return;
-      }
-
-      if (pass !== confirm) {
-        Alert.alert(
-          "Error",
-          "Passwords do not match."
-        );
-        return;
-      }
-    }
-
+  const loadProfile = async () => {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!user) {
-        Alert.alert("Error", "Unable to update profile.");
+        navigation.replace("Login");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, created_at")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        showAlert("Error", error.message);
+        return;
+      }
+
+      const result = {
+        ...data,
+        email: user.email || data.email || "",
+      };
+
+      setProfile(result);
+      setName(result.full_name || "");
+      setEmail(result.email);
+    } catch (error) {
+      showAlert(
+        "Error",
+        error.message || "Unable to load your profile."
+      );
+    }
+  };
+
+  const resetPasswordFields = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+  };
+
+  const startEditing = (section) => {
+    if (editingSection) return;
+
+    if (section === "name") {
+      setName(profile?.full_name || "");
+    }
+
+    if (section === "email") {
+      setEmail(profile?.email || "");
+      setCurrentPassword("");
+      setShowCurrentPassword(false);
+    }
+
+    if (section === "password") {
+      resetPasswordFields();
+    }
+
+    setEditingSection(section);
+  };
+
+  const cancelEditing = () => {
+    if (editingSection === "name") {
+      setName(profile?.full_name || "");
+    }
+
+    if (editingSection === "email") {
+      setEmail(profile?.email || "");
+      setCurrentPassword("");
+    }
+
+    if (editingSection === "password") {
+      resetPasswordFields();
+    }
+
+    setEditingSection(null);
+  };
+
+  const saveName = async () => {
+    const cleanName = name.trim();
+
+    if (!cleanName || !nameRegex.test(cleanName)) {
+      showAlert("Invalid Name", "Please enter a valid full name.");
+      return;
+    }
+
+    if (cleanName === profile?.full_name) {
+      setEditingSection(null);
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        showAlert("Error", "User session not found.");
+        return;
+      }
+
+      const { error: authError } =
+        await supabase.auth.updateUser({
+          data: {
+            full_name: cleanName,
+          },
+        });
+
+      if (authError) {
+        showAlert("Update Failed", authError.message);
         return;
       }
 
       const { data, error } = await supabase
         .from("profiles")
         .update({
-          full_name: name.trim(),
-          phone: cleanPhone,
+          full_name: cleanName,
         })
         .eq("id", user.id)
-        .select()
+        .select("id, full_name, email, created_at")
         .single();
 
-      if (error) throw error;
-
-      if (passwordChanged) {
-        const { error: passwordError } =
-          await supabase.auth.updateUser({
-            password: pass,
-          });
-
-        if (passwordError) throw passwordError;
+      if (error) {
+        showAlert("Database Update Failed", error.message);
+        return;
       }
 
-      setP(data);
-      setName(data.full_name || "");
-      setPhone(cleanPhone);
-      setPass("");
-      setConfirm("");
-      setShow(false);
-      setShowConfirm(false);
-      setEdit(false);
+      setProfile({
+        ...data,
+        email: user.email || data.email || "",
+      });
 
-      Alert.alert(
-        "Success",
-        "Your changes have been saved."
+      setName(cleanName);
+      setEditingSection(null);
+
+      showAlert(
+        "Changes Saved",
+        "Your name has been updated successfully."
       );
-    } catch {
-      Alert.alert(
+    } catch (error) {
+      showAlert(
         "Error",
-        "Unable to save your changes."
+        error.message || "Unable to update your name."
       );
+    } finally {
+      setSaving(false);
     }
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
+  const verifyPassword = async (user, password) => {
+    const { error } =
+      await supabase.auth.signInWithPassword({
+        email: user.email,
+        password,
+      });
 
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "Login" }],
-    });
+    return error;
   };
 
-  const initials = (p?.full_name || "T")
-    .split(" ")
-    .map((x) => x[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const saveEmail = async () => {
+    const cleanEmail = email.trim().toLowerCase();
 
-  if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#2563EB" />
-        <Text>Loading profile...</Text>
+    if (!emailRegex.test(cleanEmail)) {
+      showAlert(
+        "Invalid Email",
+        "Please enter a valid email address."
+      );
+      return;
+    }
+
+    if (!currentPassword) {
+      showAlert(
+        "Password Required",
+        "Please enter your current password."
+      );
+      return;
+    }
+
+    if (
+      cleanEmail ===
+      (profile?.email || "").trim().toLowerCase()
+    ) {
+      setCurrentPassword("");
+      setEditingSection(null);
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user?.email) {
+        showAlert(
+          "Error",
+          "User session not found."
+        );
+        return;
+      }
+
+      const passwordError = await verifyPassword(
+        user,
+        currentPassword
+      );
+
+      if (passwordError) {
+        showAlert(
+          "Incorrect Password",
+          "Your current password is incorrect."
+        );
+        return;
+      }
+
+      const { error: authError } =
+        await supabase.auth.updateUser(
+          {
+            email: cleanEmail,
+          },
+          {
+            emailRedirectTo: window.location.origin,
+          }
+        );
+
+      if (authError) {
+        showAlert(
+          "Email Update Failed",
+          authError.message
+        );
+        return;
+      }
+
+      setCurrentPassword("");
+      setShowCurrentPassword(false);
+      setEditingSection(null);
+
+      showAlert(
+        "Confirmation Email Sent",
+        `A confirmation email was sent to ${cleanEmail}.\n\nOpen the email and click the confirmation link to complete the email change.`
+      );
+    } catch (error) {
+      showAlert(
+        "Error",
+        error.message || "Unable to update your email."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const savePassword = async () => {
+    if (!currentPassword) {
+      showAlert(
+        "Current Password Required",
+        "Enter your current password."
+      );
+      return;
+    }
+
+    if (!newPassword) {
+      showAlert(
+        "New Password Required",
+        "Enter your new password."
+      );
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      showAlert(
+        "Invalid Password",
+        "Your new password must contain at least 6 characters."
+      );
+      return;
+    }
+
+    if (!confirmPassword) {
+      showAlert(
+        "Confirm Password Required",
+        "Please confirm your new password."
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showAlert(
+        "Password Mismatch",
+        "The new password and confirmation do not match."
+      );
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      showAlert(
+        "Invalid Password",
+        "Your new password must be different from your current password."
+      );
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.email) {
+        showAlert("Error", "User session not found.");
+        return;
+      }
+
+      const passwordError = await verifyPassword(
+        user,
+        currentPassword
+      );
+
+      if (passwordError) {
+        showAlert(
+          "Incorrect Password",
+          "Your current password is incorrect. No changes were made."
+        );
+        return;
+      }
+
+      const { error } =
+        await supabase.auth.updateUser({
+          password: newPassword,
+        });
+
+      if (error) {
+        showAlert(
+          "Password Update Failed",
+          error.message
+        );
+        return;
+      }
+
+      resetPasswordFields();
+      setEditingSection(null);
+
+      showAlert(
+        "Password Changed",
+        "Your password has been updated successfully."
+      );
+    } catch (error) {
+      showAlert(
+        "Error",
+        error.message || "Unable to update your password."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const signOut = async () => {
+    const { error } =
+      await supabase.auth.signOut();
+
+    if (error) {
+      showAlert(
+        "Sign Out Failed",
+        error.message
+      );
+      return;
+    }
+
+    navigation.replace("Login");
+  };
+
+  const initials = name.trim()
+    ? name
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase()
+    : "U";
+
+  const EditActions = ({ section, save }) =>
+    editingSection === section ? (
+      <View style={styles.actionRow}>
+        <Pressable
+          style={styles.cancelSmall}
+          onPress={cancelEditing}
+          disabled={saving}
+        >
+          <Text style={styles.cancelSmallText}>
+            Cancel
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.saveSmall}
+          onPress={save}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator
+              size="small"
+              color="#FFFFFF"
+            />
+          ) : (
+            <Text style={styles.saveSmallText}>
+              Save
+            </Text>
+          )}
+        </Pressable>
       </View>
+    ) : (
+      <Pressable
+        style={styles.editSmall}
+        onPress={() => startEditing(section)}
+        disabled={editingSection !== null}
+      >
+        <Feather
+          name="edit-2"
+          size={15}
+          color="#1769E0"
+        />
+
+        <Text style={styles.editSmallText}>
+          Edit
+        </Text>
+      </Pressable>
     );
-  }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{
-        padding: 18,
-        paddingBottom: 40 + insets.bottom,
-      }}
-    >
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.small}>ACCOUNT</Text>
-          <Text style={styles.title}>My Profile</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.close}
-          onPress={() => navigation.goBack()}
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View
+          style={[
+            styles.container,
+            isWeb && styles.webContainer,
+          ]}
         >
-          <Feather name="x" size={21} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.profile}>
-        {p?.avatar_url ? (
-          <Image
-            source={{ uri: p.avatar_url }}
-            style={styles.avatar}
-          />
-        ) : (
-          <Text style={styles.initials}>
-            {initials}
-          </Text>
-        )}
-
-        <Text style={styles.profileName}>
-          {p?.full_name || "Tenant"}
-        </Text>
-
-        <Text style={styles.tenant}>
-          🏠 Tenant
-        </Text>
-
-        <TouchableOpacity
-          style={styles.photoButton}
-          onPress={photo}
-        >
-          <Feather
-            name="image"
-            size={15}
-            color="#fff"
-          />
-
-          <Text style={styles.photoText}>
-            Change Photo
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          Personal Information
-        </Text>
-
-        {!edit && (
-          <TouchableOpacity
-            style={styles.edit}
-            onPress={() => setEdit(true)}
-          >
-            <Feather
-              name="edit-2"
-              size={14}
-              color="#2563EB"
-            />
-
-            <Text style={styles.editText}>
-              Edit
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <View style={styles.card}>
-        {edit ? (
-          <>
-            <Text style={styles.label}>
-              Full Name
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Full name"
-            />
-
-            <Text style={styles.label}>
-              Phone
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={(text) => {
-                let numbers = text.replace(/\D/g, "");
-
-                if (numbers.length < 2) {
-                  numbers = "09";
-                } else {
-                  numbers = "09" + numbers.slice(2);
-                }
-
-                setPhone(numbers.slice(0, 11));
-              }}
-              placeholder="09XXXXXXXXX"
-              keyboardType="number-pad"
-              maxLength={11}
-            />
-
-            <Text style={styles.phoneHint}>
-              11 digits required
-            </Text>
-
-            <Text style={styles.label}>
-              Email
-            </Text>
-
-            <View style={styles.email}>
-              <Text>{p?.email}</Text>
-
+          <View style={styles.header}>
+            <Pressable
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
               <Feather
-                name="lock"
-                size={14}
-                color="#999"
+                name="arrow-left"
+                size={20}
+                color="#152238"
               />
+            </Pressable>
+
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>
+                My Profile
+              </Text>
+
+              <Text style={styles.headerSubtitle}>
+                Manage your account
+              </Text>
             </View>
 
-            <Text style={styles.label}>
-              New Password
+            <View style={styles.headerSpacer} />
+          </View>
+
+          <View style={styles.profileCard}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {initials}
+              </Text>
+            </View>
+
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>
+                {profile?.full_name || "User"}
+              </Text>
+
+              <Text style={styles.profileEmail}>
+                {profile?.email || "No email"}
+              </Text>
+
+              <View style={styles.accountBadge}>
+                <View style={styles.activeDot} />
+
+                <Text style={styles.accountBadgeText}>
+                  Active Account
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              Account Details
             </Text>
 
-            <View style={styles.password}>
-              <TextInput
-                style={{ flex: 1 }}
-                value={pass}
-                onChangeText={setPass}
-                placeholder="New password"
-                secureTextEntry={!show}
-              />
+            <Text style={styles.sectionSubtitle}>
+              Update your information individually
+            </Text>
+          </View>
 
-              <TouchableOpacity
-                onPress={() => setShow(!show)}
-              >
+          <View style={styles.card}>
+            <View style={styles.cardTop}>
+              <View style={styles.cardIcon}>
                 <Feather
-                  name={show ? "eye-off" : "eye"}
-                  size={19}
-                  color="#777"
+                  name="user"
+                  size={18}
+                  color="#1769E0"
                 />
-              </TouchableOpacity>
-            </View>
+              </View>
 
-            {pass.length > 0 && (
-              <>
-                <Text style={styles.label}>
-                  Confirm Password
+              <View style={styles.cardTitleArea}>
+                <Text style={styles.cardLabel}>
+                  FULL NAME
                 </Text>
 
-                <View style={styles.password}>
-                  <TextInput
-                    style={{ flex: 1 }}
-                    value={confirm}
-                    onChangeText={setConfirm}
-                    placeholder="Confirm password"
-                    secureTextEntry={!showConfirm}
+                {editingSection !== "name" && (
+                  <Text style={styles.cardValue}>
+                    {profile?.full_name ||
+                      "Not provided"}
+                  </Text>
+                )}
+              </View>
+
+              <EditActions
+                section="name"
+                save={saveName}
+              />
+            </View>
+
+            {editingSection === "name" && (
+              <View style={styles.editInputWrapper}>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Enter your full name"
+                  placeholderTextColor="#A0A9B5"
+                  style={styles.input}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  autoFocus
+                />
+              </View>
+            )}
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.cardTop}>
+              <View style={styles.cardIcon}>
+                <Feather
+                  name="mail"
+                  size={18}
+                  color="#1769E0"
+                />
+              </View>
+
+              <View style={styles.cardTitleArea}>
+                <Text style={styles.cardLabel}>
+                  EMAIL ADDRESS
+                </Text>
+
+                {editingSection !== "email" && (
+                  <Text
+                    style={styles.cardValue}
+                    numberOfLines={1}
+                  >
+                    {profile?.email ||
+                      "Not provided"}
+                  </Text>
+                )}
+              </View>
+
+              <EditActions
+                section="email"
+                save={saveEmail}
+              />
+            </View>
+
+            {editingSection === "email" && (
+              <View style={styles.emailEditArea}>
+                <View style={styles.inputBox}>
+                  <Feather
+                    name="mail"
+                    size={17}
+                    color="#8995A6"
                   />
 
-                  <TouchableOpacity
-                    onPress={() =>
-                      setShowConfirm(!showConfirm)
-                    }
-                  >
-                    <Feather
-                      name={
-                        showConfirm
-                          ? "eye-off"
-                          : "eye"
-                      }
-                      size={19}
-                      color="#777"
-                    />
-                  </TouchableOpacity>
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Enter your email"
+                    placeholderTextColor="#A0A9B5"
+                    style={styles.input}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="none"
+                    importantForAutofill="no"
+                    autoFocus
+                  />
                 </View>
-              </>
+
+                <PasswordInput
+                  value={currentPassword}
+                  setValue={setCurrentPassword}
+                  visible={showCurrentPassword}
+                  setVisible={setShowCurrentPassword}
+                  icon="lock"
+                  placeholder="Current password"
+                />
+              </View>
             )}
+          </View>
 
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={styles.cancel}
-                onPress={() => {
-                  setEdit(false);
-                  setPass("");
-                  setConfirm("");
-                  setShow(false);
-                  setShowConfirm(false);
-                  setPhone(p?.phone || "09");
-                  setName(p?.full_name || "");
-                }}
-              >
-                <Text>Cancel</Text>
-              </TouchableOpacity>
+          <View style={styles.card}>
+            <View style={styles.cardTop}>
+              <View style={styles.cardIcon}>
+                <Feather
+                  name="lock"
+                  size={18}
+                  color="#1769E0"
+                />
+              </View>
 
-              <TouchableOpacity
-                style={styles.save}
-                onPress={save}
-              >
-                <Text style={styles.buttonText}>
-                  Save Changes
+              <View style={styles.cardTitleArea}>
+                <Text style={styles.cardLabel}>
+                  PASSWORD
                 </Text>
-              </TouchableOpacity>
+
+                {editingSection !== "password" && (
+                  <Text style={styles.cardValue}>
+                    ••••••••
+                  </Text>
+                )}
+              </View>
+
+              <EditActions
+                section="password"
+                save={savePassword}
+              />
             </View>
-          </>
-        ) : (
-          <>
-            <Info
-              icon="user"
-              label="Full Name"
-              value={p?.full_name}
-            />
 
-            <Info
-              icon="mail"
-              label="Email"
-              value={p?.email}
-            />
+            {editingSection === "password" && (
+              <View style={styles.passwordEditArea}>
+                <PasswordInput
+                  value={currentPassword}
+                  setValue={setCurrentPassword}
+                  visible={showCurrentPassword}
+                  setVisible={setShowCurrentPassword}
+                  icon="lock"
+                  placeholder="Current password"
+                  autoFocus
+                />
 
-            <Info
-              icon="phone"
-              label="Phone"
-              value={
-                p?.phone || "Not provided"
-              }
-            />
+                <PasswordInput
+                  value={newPassword}
+                  setValue={setNewPassword}
+                  visible={showNewPassword}
+                  setVisible={setShowNewPassword}
+                  icon="key"
+                  placeholder="New password"
+                />
 
-            <Info
-              icon="lock"
-              label="Password"
-              value="••••••••"
-            />
-          </>
-        )}
-      </View>
+                <PasswordInput
+                  value={confirmPassword}
+                  setValue={setConfirmPassword}
+                  visible={showConfirmPassword}
+                  setVisible={setShowConfirmPassword}
+                  icon="check-circle"
+                  placeholder="Confirm new password"
+                />
+              </View>
+            )}
+          </View>
 
-      <Text style={styles.sectionTitle}>
-        Account
-      </Text>
+          <Pressable
+            style={styles.signOutButton}
+            onPress={signOut}
+            disabled={
+              editingSection !== null ||
+              saving
+            }
+          >
+            <View style={styles.signOutLeft}>
+              <View style={styles.signOutIcon}>
+                <Feather
+                  name="log-out"
+                  size={18}
+                  color="#E53935"
+                />
+              </View>
 
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() =>
-          Alert.alert(
-            "My Bookings",
-            "Booking history will be available here."
-          )
-        }
-      >
-        <View style={styles.menu}>
-          <View style={styles.icon}>
+              <View>
+                <Text style={styles.signOutTitle}>
+                  Sign Out
+                </Text>
+
+                <Text style={styles.signOutSubtitle}>
+                  Sign out of your account
+                </Text>
+              </View>
+            </View>
+
             <Feather
-              name="calendar"
+              name="chevron-right"
               size={20}
-              color="#2563EB"
+              color="#A5ADBA"
             />
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.menuTitle}>
-              My Bookings
-            </Text>
-
-            <Text style={styles.sub}>
-              View your rental history
-            </Text>
-          </View>
-
-          <Feather
-            name="chevron-right"
-            size={20}
-            color="#999"
-          />
+          </Pressable>
         </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.logout}
-        onPress={logout}
-      >
-        <Feather
-          name="log-out"
-          size={18}
-          color="#DC2626"
-        />
-
-        <Text style={styles.logoutText}>
-          Log Out
-        </Text>
-      </TouchableOpacity>
-
-      <Text style={styles.footer}>
-        Smart Apartment Rental System
-      </Text>
-    </ScrollView>
-  );
-}
-
-function Info({ icon, label, value }) {
-  return (
-    <View style={styles.info}>
-      <View style={styles.icon}>
-        <Feather
-          name={icon}
-          size={18}
-          color="#2563EB"
-        />
-      </View>
-
-      <View>
-        <Text style={styles.label}>
-          {label}
-        </Text>
-
-        <Text style={styles.value}>
-          {value || "Not provided"}
-        </Text>
-      </View>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: "#F7F9FC",
+    backgroundColor: "#F5F8FC",
   },
 
-  loading: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 35,
+  },
+
+  container: {
+    width: "100%",
+    paddingHorizontal: 18,
+    paddingTop: 12,
+  },
+
+  webContainer: {
+    maxWidth: 900,
+    alignSelf: "center",
+    paddingHorizontal: 30,
   },
 
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-
-  small: {
-    color: "#2563EB",
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-  },
-
-  title: {
-    color: "#172033",
-    fontSize: 27,
-    fontWeight: "800",
-    marginTop: 4,
-  },
-
-  close: {
-    width: 45,
-    height: 45,
-    borderRadius: 23,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  profile: {
-    backgroundColor: "#2563EB",
-    borderRadius: 24,
-    alignItems: "center",
-    padding: 25,
-  },
-
-  avatar: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-  },
-
-  initials: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: "#fff",
-    color: "#2563EB",
-    fontSize: 29,
-    fontWeight: "800",
-    textAlign: "center",
-    textAlignVertical: "center",
-  },
-
-  profileName: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "800",
-    marginTop: 12,
-  },
-
-  tenant: {
-    color: "#fff",
-    marginTop: 7,
-  },
-
-  photoButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 14,
-    padding: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,.15)",
-  },
-
-  photoText: {
-    color: "#fff",
-    fontWeight: "700",
-    marginLeft: 6,
-  },
-
-  section: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 24,
-  },
-
-  sectionTitle: {
-    color: "#172033",
-    fontSize: 18,
-    fontWeight: "800",
-    marginTop: 24,
-    marginBottom: 10,
-  },
-
-  edit: {
-    flexDirection: "row",
-    backgroundColor: "#EAF1FF",
-    padding: 9,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginTop: 15,
-  },
-
-  editText: {
-    color: "#2563EB",
-    fontWeight: "800",
-    marginLeft: 5,
-  },
-
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 19,
-    padding: 16,
-    elevation: 2,
-    marginBottom: 10,
-  },
-
-  info: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEF0F3",
-  },
-
-  icon: {
-    width: 43,
-    height: 43,
-    borderRadius: 14,
-    backgroundColor: "#EFF6FF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-
-  label: {
-    color: "#8A92A3",
-    fontSize: 11,
-    marginBottom: 4,
-  },
-
-  value: {
-    color: "#172033",
-    fontWeight: "700",
-  },
-
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: "#DCE2EA",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 14,
-    color: "#172033",
-  },
-
-  phoneHint: {
-    color: "#8A92A3",
-    fontSize: 10,
-    marginTop: -9,
-    marginBottom: 14,
-  },
-
-  email: {
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 12,
+    height: 65,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 15,
   },
 
-  password: {
-    height: 48,
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#DCE2EA",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    flexDirection: "row",
+    borderColor: "#E4EAF2",
     alignItems: "center",
-    marginBottom: 14,
+    justifyContent: "center",
   },
 
-  actions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 5,
-  },
-
-  cancel: {
+  headerCenter: {
     flex: 1,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "#F3F4F6",
     alignItems: "center",
-    justifyContent: "center",
   },
 
-  save: {
-    flex: 1.4,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "#2563EB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  buttonText: {
-    color: "#fff",
+  headerTitle: {
+    color: "#152238",
+    fontSize: 18,
     fontWeight: "800",
   },
 
-  menu: {
+  headerSubtitle: {
+    color: "#8A94A3",
+    fontSize: 11,
+    marginTop: 2,
+  },
+
+  headerSpacer: {
+    width: 44,
+  },
+
+  profileCard: {
+    backgroundColor: "#1769E0",
+    borderRadius: 22,
+    padding: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 27,
+    shadowColor: "#1769E0",
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    elevation: 4,
+  },
+
+  avatar: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 4,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+
+  avatarText: {
+    color: "#1769E0",
+    fontSize: 25,
+    fontWeight: "800",
+  },
+
+  profileInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+
+  profileName: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "800",
+  },
+
+  profileEmail: {
+    color: "#DCE9FF",
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  accountBadge: {
+    alignSelf: "flex-start",
+    marginTop: 9,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.13)",
     flexDirection: "row",
     alignItems: "center",
   },
 
-  menuTitle: {
-    fontWeight: "800",
-    color: "#172033",
+  activeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#FFFFFF",
+    marginRight: 6,
   },
 
-  sub: {
-    color: "#8A92A3",
-    fontSize: 11,
+  accountBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "700",
+  },
+
+  sectionHeader: {
+    marginBottom: 12,
+  },
+
+  sectionTitle: {
+    color: "#152238",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+
+  sectionSubtitle: {
+    color: "#8995A6",
+    fontSize: 12,
     marginTop: 3,
   },
 
-  logout: {
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "#FEF2F2",
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 18,
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: "#E8EDF4",
+    shadowColor: "#152238",
+    shadowOpacity: 0.045,
+    shadowRadius: 10,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    elevation: 2,
+    marginBottom: 13,
+  },
+
+  cardTop: {
+    minHeight: 49,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  cardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#EAF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  cardTitleArea: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+
+  cardLabel: {
+    color: "#8995A6",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    marginBottom: 4,
+  },
+
+  cardValue: {
+    color: "#202A3A",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  editSmall: {
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    backgroundColor: "#EAF2FF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 5,
+  },
+
+  editSmallText: {
+    color: "#1769E0",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  cancelSmall: {
+    height: 34,
+    paddingHorizontal: 9,
+    borderRadius: 9,
+    backgroundColor: "#F1F3F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  cancelSmallText: {
+    color: "#6E7785",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
+  saveSmall: {
+    height: 34,
+    minWidth: 52,
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    backgroundColor: "#1769E0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  saveSmallText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+
+  editInputWrapper: {
+    height: 51,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#1769E0",
+    backgroundColor: "#FAFBFD",
+    paddingHorizontal: 14,
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  inputBox: {
+    height: 51,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#DCE3EC",
+    backgroundColor: "#FAFBFD",
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  passwordInputBox: {
+    marginTop: 14,
+    marginBottom: 10,
+  },
+
+  input: {
+    flex: 1,
+    height: "100%",
+    marginLeft: 9,
+    color: "#152238",
+    fontSize: 14,
+    outlineStyle: "none",
+  },
+
+  emailEditArea: {
+    marginTop: 0,
+  },
+
+  passwordEditArea: {
     marginTop: 14,
   },
 
-  logoutText: {
-    color: "#DC2626",
-    fontWeight: "800",
-    marginLeft: 8,
+  eyeButton: {
+    width: 36,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  footer: {
-    textAlign: "center",
-    color: "#9AA1AE",
-    fontSize: 11,
-    marginTop: 25,
+  signOutButton: {
+    minHeight: 68,
+    borderRadius: 17,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#F0E4E3",
+    paddingHorizontal: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 5,
+  },
+
+  signOutLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  signOutIcon: {
+    width: 39,
+    height: 39,
+    borderRadius: 11,
+    backgroundColor: "#FFF0EF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 11,
+  },
+
+  signOutTitle: {
+    color: "#D93632",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  signOutSubtitle: {
+    color: "#A1A8B3",
+    fontSize: 10,
+    marginTop: 2,
   },
 });

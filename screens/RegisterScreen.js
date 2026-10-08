@@ -5,283 +5,503 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
+  ActivityIndicator,
+  useWindowDimensions,
   ScrollView,
-  Platform,
 } from "react-native";
-
 import { Feather } from "@expo/vector-icons";
 import { supabase } from "../services/supabase";
+import { showAlert } from "../services/alert";
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const nameRegex = /^[A-Za-zÀ-ÿ\s'-]+$/;
+
+const PasswordInput = ({
+  value,
+  setValue,
+  visible,
+  setVisible,
+  placeholder,
+}) => (
+  <View style={styles.inputContainer}>
+    <Feather name="lock" size={18} color="#8995A6" />
+
+    <TextInput
+      style={styles.input}
+      value={value}
+      onChangeText={setValue}
+      placeholder={placeholder}
+      placeholderTextColor="#A0A9B5"
+      secureTextEntry={!visible}
+      autoCapitalize="none"
+      autoCorrect={false}
+      autoComplete="off"
+      textContentType="none"
+      importantForAutofill="no"
+    />
+
+    <TouchableOpacity
+      onPress={() => setVisible(!visible)}
+      style={styles.eyeButton}
+      activeOpacity={0.7}
+    >
+      <Feather
+        name={visible ? "eye-off" : "eye"}
+        size={19}
+        color="#777"
+      />
+    </TouchableOpacity>
+  </View>
+);
 
 export default function RegisterScreen({ navigation }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("09");
+  const { width } = useWindowDimensions();
+  const isWeb = width >= 768;
+
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = async () => {
-    if (!name || !phone || !email || !password) {
-      Alert.alert("Error", "Please fill in all fields.");
-      return;
-    }
+  const register = async () => {
+    const cleanName = fullName.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
-    // Phone must be exactly 11 digits and start with 09
-    const phoneRegex = /^09[0-9]{9}$/;
-
-    if (!phoneRegex.test(phone)) {
-      Alert.alert(
-        "Invalid Phone Number",
-        "Phone number must be exactly 11 digits and start with 09.\n\nExample: 09123456789"
+    if (!cleanName || !cleanEmail || !password || !confirm) {
+      showAlert(
+        "Missing Information",
+        "Please complete all required fields."
       );
       return;
     }
 
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!nameRegex.test(cleanName)) {
+      showAlert(
+        "Invalid Full Name",
+        "Please enter a valid full name."
+      );
+      return;
+    }
 
-    if (!emailRegex.test(email)) {
-      Alert.alert(
+    if (!emailRegex.test(cleanEmail)) {
+      showAlert(
         "Invalid Email",
-        "Please enter a valid email address.\n\nExample: example@gmail.com"
+        "Please enter a valid email address."
       );
       return;
     }
 
-    // Password validation
     if (password.length < 6) {
-      Alert.alert(
+      showAlert(
         "Invalid Password",
         "Password must be at least 6 characters."
       );
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
-          phone: phone,
-        },
-      },
-    });
-
-    if (error) {
-      console.log("REGISTER ERROR:", error);
-      Alert.alert("Registration Failed", error.message);
+    if (password !== confirm) {
+      showAlert(
+        "Password Mismatch",
+        "Passwords do not match."
+      );
       return;
     }
 
-    Alert.alert(
-      "Account Created",
-      "Your account has been created successfully."
-    );
+    setLoading(true);
 
-    navigation.navigate("Login");
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: {
+            full_name: cleanName,
+          },
+          emailRedirectTo: window.location.origin,
+        },
+      });
+
+      if (error) {
+        console.log("SUPABASE REGISTER ERROR:", error);
+
+        showAlert(
+          "Registration Failed",
+          error.message || "Unable to create your account."
+        );
+
+        return;
+      }
+
+      console.log("REGISTER SUCCESS:", data);
+
+      setFullName("");
+      setEmail("");
+      setPassword("");
+      setConfirm("");
+      setShowPassword(false);
+      setShowConfirm(false);
+
+      showAlert(
+        "Account Created",
+          "Your account was created. Please check your email and click the confirmation link before signing in."
+      );
+
+    } catch (error) {
+      console.log("REGISTER ERROR:", error);
+
+      showAlert(
+        "Registration Error",
+        error.message || "Unable to create your account."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
+    <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.scroll,
+          isWeb && styles.webScroll,
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.logo}>🏠</Text>
+        <View style={[styles.wrapper, isWeb && styles.webWrapper]}>
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+            >
+              <Feather
+                name="arrow-left"
+                size={21}
+                color="#152238"
+              />
+            </TouchableOpacity>
+          </View>
 
-        <Text style={styles.title}>Create Account</Text>
+          <View style={styles.brand}>
+            <View style={styles.logo}>
+              <Feather
+                name="home"
+                size={27}
+                color="#FFFFFF"
+              />
+            </View>
 
-        <Text style={styles.subtitle}>
-          Create your apartment rental account
-        </Text>
+            <Text style={styles.brandName}>
+              Create Account
+            </Text>
 
-        {/* Full Name */}
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your full name"
-          placeholderTextColor="#999"
-          value={name}
-          onChangeText={setName}
-          autoCapitalize="words"
-        />
+            <Text style={styles.brandSubtitle}>
+              Create your apartment rental account
+            </Text>
+          </View>
 
-        {/* Phone Number */}
-        <TextInput
-          style={styles.input}
-          placeholder="09XXXXXXXXX"
-          placeholderTextColor="#999"
-          value={phone}
-          onChangeText={(text) => {
-            const numbersOnly = text.replace(/[^0-9]/g, "");
+          <View style={[styles.card, isWeb && styles.webCard]}>
+            
+            <View style={styles.field}>
+              <Text style={styles.label}>Full Name</Text>
 
-            if (!numbersOnly.startsWith("09")) {
-              setPhone("09");
-              return;
-            }
+              <View style={styles.inputContainer}>
+                <Feather
+                  name="user"
+                  size={18}
+                  color="#8995A6"
+                />
 
-            setPhone(numbersOnly.slice(0, 11));
-          }}
-          keyboardType="phone-pad"
-          maxLength={11}
-        />
+                <TextInput
+                  style={styles.input}
+                  value={fullName}
+                  onChangeText={setFullName}
+                  placeholder="Enter your full name"
+                  placeholderTextColor="#A0A9B5"
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  autoComplete="off"
+                />
+              </View>
+            </View>
 
-        {/* Email */}
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your email"
-          placeholderTextColor="#999"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+            <View style={styles.field}>
+              <Text style={styles.label}>
+                Email Address
+              </Text>
 
-        {/* Password */}
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={styles.passwordInput}
-            placeholder="Enter your password"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+              <View style={styles.inputContainer}>
+                <Feather
+                  name="mail"
+                  size={18}
+                  color="#8995A6"
+                />
 
-          <TouchableOpacity
-            style={styles.eyeButton}
-            onPress={() => setShowPassword(!showPassword)}
-            activeOpacity={0.6}
-          >
-            <Feather
-              name={showPassword ? "eye" : "eye-off"}
-              size={22}
-              color="#777"
-            />
-          </TouchableOpacity>
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="example@email.com"
+                  placeholderTextColor="#A0A9B5"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="off"
+                  textContentType="none"
+                  importantForAutofill="no"
+                />
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>
+                Password
+              </Text>
+
+              <PasswordInput
+                value={password}
+                setValue={setPassword}
+                visible={showPassword}
+                setVisible={setShowPassword}
+                placeholder="Enter your password"
+              />
+
+              <Text style={styles.passwordHint}>
+                At least 6 characters, with a combination of uppercase, lowercase, and number.
+              </Text>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>
+                Confirm Password
+              </Text>
+
+              <PasswordInput
+                value={confirm}
+                setValue={setConfirm}
+                visible={showConfirm}
+                setVisible={setShowConfirm}
+                placeholder="Re-enter your password"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.registerButton,
+                loading && styles.disabledButton,
+              ]}
+              disabled={loading}
+              onPress={register}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Text style={styles.registerButtonText}>
+                    Create Account
+                  </Text>
+
+                  <Feather
+                    name="arrow-right"
+                    size={18}
+                    color="#FFFFFF"
+                  />
+                </>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.loginRow}>
+              <Text style={styles.loginText}>
+                Already have an account?
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => navigation.navigate("Login")}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.loginLink}>
+                  Sign In
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-
-        {/* Register Button */}
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleRegister}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.buttonText}>Create Account</Text>
-        </TouchableOpacity>
-
-        {/* Login Link */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate("Login")}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.loginText}>
-            Already have an account? Login
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#F5F8FC",
   },
 
-  content: {
+  scroll: {
     flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 25,
+  },
+
+  webScroll: {
+    paddingVertical: 30,
+  },
+
+  wrapper: {
+    width: "100%",
+    alignSelf: "center",
+  },
+
+  webWrapper: {
+    maxWidth: 520,
+  },
+
+  topBar: {
+    height: 43,
+    marginBottom: 10,
+  },
+
+  backButton: {
+    width: 43,
+    height: 43,
+    borderRadius: 13,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
     justifyContent: "center",
-    padding: 25,
+    borderWidth: 1,
+    borderColor: "#E4EAF2",
+  },
+
+  brand: {
+    alignItems: "center",
+    marginBottom: 21,
   },
 
   logo: {
-    fontSize: 60,
-    textAlign: "center",
-    marginBottom: 15,
+    width: 60,
+    height: 60,
+    borderRadius: 18,
+    backgroundColor: "#1769E0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 11,
   },
 
-  title: {
-    fontSize: 30,
-    fontWeight: "bold",
-    textAlign: "center",
-    color: "#222",
+  brandName: {
+    fontSize: 25,
+    fontWeight: "800",
+    color: "#152238",
   },
 
-  subtitle: {
-    fontSize: 15,
-    color: "#777",
-    textAlign: "center",
-    marginTop: 8,
-    marginBottom: 30,
+  brandSubtitle: {
+    fontSize: 12,
+    color: "#8995A6",
+    marginTop: 4,
+  },
+
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 23,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: "#E8EDF4",
+  },
+
+  webCard: {
+    padding: 32,
+    borderRadius: 25,
+    boxShadow: "0px 8px 20px rgba(21, 34, 56, 0.07)",
+  },
+
+  field: {
+    marginBottom: 16,
+  },
+
+  label: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#344054",
+    marginBottom: 7,
+  },
+
+  inputContainer: {
+    height: 53,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#DCE3EC",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
   },
 
   input: {
-    height: 52,
-    backgroundColor: "#FFF",
-    borderWidth: 1,
-    borderColor: "#DDD",
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    fontSize: 16,
-    color: "#222",
-  },
-
-  passwordContainer: {
-    height: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    borderWidth: 1,
-    borderColor: "#DDD",
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-
-  passwordInput: {
     flex: 1,
-    height: 52,
-    paddingHorizontal: 15,
-    fontSize: 16,
-    color: "#222",
+    height: "100%",
+    marginLeft: 10,
+    color: "#152238",
+    fontSize: 14,
+    outlineStyle: "none",
+    borderWidth: 0,
+    backgroundColor: "transparent",
   },
 
   eyeButton: {
-    width: 50,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  button: {
-    backgroundColor: "#2563EB",
-    height: 52,
-    borderRadius: 10,
+    width: 28,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 2,
   },
 
-  buttonText: {
-    color: "#FFF",
-    fontSize: 17,
-    fontWeight: "bold",
+  registerButton: {
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: "#1769E0",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 9,
+  },
+
+  disabledButton: {
+    opacity: 0.6,
+  },
+
+  registerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  loginRow: {
+    marginTop: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
   },
 
   loginText: {
-    textAlign: "center",
-    color: "#2563EB",
-    marginTop: 20,
-    fontSize: 15,
+    fontSize: 13,
+    color: "#7A8798",
+  },
+
+  loginLink: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#1769E0",
+    marginLeft: 5,
+  },
+
+  passwordHint: {
+    fontSize: 11,
+    color: "#8995A6",
+    marginTop: 6,
+    lineHeight: 16,
   },
 });

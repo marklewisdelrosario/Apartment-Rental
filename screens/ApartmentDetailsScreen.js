@@ -4,27 +4,20 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Image,
-  ActivityIndicator,
-  Dimensions,
-  StatusBar,
+  TouchableOpacity,
+  useWindowDimensions,
 } from "react-native";
-
-import { Feather } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../services/supabase";
-
-const { width } = Dimensions.get("window");
 
 export default function ApartmentDetailsScreen({ route, navigation }) {
   const { apartment } = route.params;
-
-  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isWeb = width >= 768;
 
   const [images, setImages] = useState([]);
-  const [currentImage, setCurrentImage] = useState(0);
-  const [loadingImages, setLoadingImages] = useState(true);
+  const [selectedImage, setSelectedImage] = useState(apartment.image_url);
 
   useEffect(() => {
     loadImages();
@@ -37,361 +30,167 @@ export default function ApartmentDetailsScreen({ route, navigation }) {
       .eq("apartment_id", apartment.id)
       .order("image_order", { ascending: true });
 
-    if (error) {
-      console.log("Image error:", error.message);
-
-      if (apartment.image_url) {
-        setImages([
-          {
-            id: "main",
-            image_url: apartment.image_url,
-            image_order: 1,
-          },
-        ]);
-      }
-
-      setLoadingImages(false);
-      return;
-    }
-
-    if (data && data.length > 0) {
+    if (!error && data?.length) {
       setImages(data);
-    } else if (apartment.image_url) {
-      setImages([
-        {
-          id: "main",
-          image_url: apartment.image_url,
-          image_order: 1,
-        },
-      ]);
+      setSelectedImage(data[0].image_url);
+    } else {
+      setImages([{ id: 1, image_url: apartment.image_url }]);
     }
-
-    setLoadingImages(false);
   };
 
-  const handleImageScroll = (event) => {
-    const slide = Math.round(
-      event.nativeEvent.contentOffset.x / width
-    );
-
-    setCurrentImage(slide);
-  };
+  const dailyRate =
+    apartment.daily_rate || Number(apartment.price) / 30;
+  const monthlyRate =
+    apartment.price || Number(dailyRate) * 30;
+  const formatPrice = (price) =>
+    `₱${Number(price).toLocaleString("en-PH")}`;
 
   return (
     <View style={styles.container}>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="#F7F9FC"
-      />
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* IMAGE GALLERY */}
-        <View style={styles.galleryContainer}>
-          {loadingImages ? (
-            <View style={styles.imageLoading}>
-              <ActivityIndicator
-                size="large"
-                color="#2563EB"
-              />
+        <View style={styles.page}>
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Feather name="arrow-left" size={22} color="#17243A" />
+            </TouchableOpacity>
 
-              <Text style={styles.loadingText}>
-                Loading apartment photos...
-              </Text>
-            </View>
-          ) : images.length > 0 ? (
-            <>
+            <Text style={styles.pageTitle}>Apartment Details</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+
+          <View style={[styles.mainLayout, isWeb && styles.mainLayoutWeb]}>
+            <View style={[styles.leftColumn, isWeb && styles.leftColumnWeb]}>
+              <View style={styles.imageContainer}>
+                <Image
+                  source={{ uri: selectedImage }}
+                  style={styles.mainImage}
+                  resizeMode="cover"
+                />
+
+                <View style={styles.availableBadge}>
+                  <View style={styles.greenDot} />
+                  <Text style={styles.availableText}>Available</Text>
+                </View>
+              </View>
+
               <ScrollView
                 horizontal
-                pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={handleImageScroll}
+                contentContainerStyle={styles.thumbnailList}
               >
-                {images.map((image) => (
-                  <Image
-                    key={image.id.toString()}
-                    source={{ uri: image.image_url }}
-                    style={styles.galleryImage}
-                    resizeMode="cover"
-                  />
+                {images.map((item, index) => (
+                  <TouchableOpacity
+                    key={item.id || index}
+                    onPress={() => setSelectedImage(item.image_url)}
+                    style={[
+                      styles.thumbnailWrapper,
+                      selectedImage === item.image_url &&
+                        styles.thumbnailSelected,
+                    ]}
+                  >
+                    <Image
+                      source={{ uri: item.image_url }}
+                      style={styles.thumbnail}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
-
-              {/* IMAGE COUNTER */}
-              <View style={styles.imageCounter}>
-                <Feather
-                  name="camera"
-                  size={14}
-                  color="#FFFFFF"
-                />
-
-                <Text style={styles.imageCounterText}>
-                  {currentImage + 1} / {images.length}
-                </Text>
-              </View>
-
-              {/* DOT INDICATORS */}
-              <View style={styles.dotsContainer}>
-                {images.map((image, index) => (
-                  <View
-                    key={image.id.toString()}
-                    style={[
-                      styles.dot,
-                      index === currentImage &&
-                        styles.activeDot,
-                    ]}
-                  />
-                ))}
-              </View>
-            </>
-          ) : (
-            <View style={styles.noImageContainer}>
-              <Feather
-                name="home"
-                size={55}
-                color="#2563EB"
-              />
-
-              <Text style={styles.noImageText}>
-                No apartment photos
-              </Text>
             </View>
-          )}
 
-          {/* BACK BUTTON */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.8}
-          >
-            <Feather
-              name="arrow-left"
-              size={22}
-              color="#222"
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* MAIN CONTENT */}
-        <View style={styles.content}>
-          {/* TITLE */}
-          <View style={styles.titleSection}>
-            <View style={styles.titleTextContainer}>
-              <Text style={styles.title}>
-                {apartment.title}
-              </Text>
+            <View style={[styles.rightColumn, isWeb && styles.rightColumnWeb]}>
+              <Text style={styles.apartmentTitle}>{apartment.title}</Text>
 
               <View style={styles.locationRow}>
-                <Feather
-                  name="map-pin"
-                  size={16}
-                  color="#2563EB"
-                />
-
-                <Text style={styles.location}>
+                <Feather name="map-pin" size={17} color="#1769E0" />
+                <Text style={styles.locationText}>
                   {apartment.location}
                 </Text>
               </View>
-            </View>
 
-            <View style={styles.availableBadge}>
-              <View style={styles.availableDot} />
+              <View style={styles.featuresCard}>
+                {[
+                  ["bed", apartment.bedrooms || 1, "Bedroom"],
+                  ["shower", apartment.bathrooms || 1, "Bathroom"],
+                ].map(([icon, value, label], index) => (
+                  <React.Fragment key={label}>
+                    {index > 0 && <View style={styles.featureDivider} />}
+                    <View style={styles.feature}>
+                      <View style={styles.featureIcon}>
+                        <MaterialCommunityIcons
+                          name={icon}
+                          size={21}
+                          color="#1769E0"
+                        />
+                      </View>
+                      <Text style={styles.featureNumber}>{value}</Text>
+                      <Text style={styles.featureLabel}>{label}</Text>
+                    </View>
+                  </React.Fragment>
+                ))}
 
-              <Text style={styles.availableText}>
-                Available
-              </Text>
-            </View>
-          </View>
-
-          {/* PRICE */}
-          <View style={styles.priceCard}>
-            <View>
-              <Text style={styles.priceLabel}>
-                Monthly Rent
-              </Text>
-
-              <View style={styles.priceRow}>
-                <Text style={styles.currency}>
-                  ₱
-                </Text>
-
-                <Text style={styles.price}>
-                  {Number(apartment.price).toLocaleString()}
-                </Text>
-
-                <Text style={styles.month}>
-                  / month
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.priceIcon}>
-              <Feather
-                name="credit-card"
-                size={23}
-                color="#2563EB"
-              />
-            </View>
-          </View>
-
-          {/* PROPERTY FEATURES */}
-          <Text style={styles.sectionTitle}>
-            Property Details
-          </Text>
-
-          <View style={styles.featuresCard}>
-            <View style={styles.feature}>
-              <View style={styles.featureIcon}>
-                <Feather
-                  name="home"
-                  size={20}
-                  color="#2563EB"
-                />
+                <View style={styles.featureDivider} />
+                <View style={styles.feature}>
+                  <View style={styles.featureIcon}>
+                    <Feather name="wifi" size={20} color="#1769E0" />
+                  </View>
+                  <Text style={styles.featureNumber}>24/7</Text>
+                  <Text style={styles.featureLabel}>Access</Text>
+                </View>
               </View>
 
-              <Text style={styles.featureValue}>
-                {apartment.bedrooms}
-              </Text>
+              <Text style={styles.sectionTitle}>Rental Rates</Text>
 
-              <Text style={styles.featureLabel}>
-                Bedroom
-                {apartment.bedrooms !== 1 ? "s" : ""}
-              </Text>
-            </View>
-
-            <View style={styles.featureDivider} />
-
-            <View style={styles.feature}>
-              <View style={styles.featureIcon}>
-                <Feather
-                  name="droplet"
-                  size={20}
-                  color="#2563EB"
-                />
+              <View style={styles.ratesRow}>
+                {[
+                  ["Daily Rental", dailyRate, "/day"],
+                  ["Monthly Rental", monthlyRate, "/month"],
+                ].map(([label, price, period]) => (
+                  <View style={styles.rateCard} key={label}>
+                    <View style={styles.rateIcon}>
+                      <Feather name="calendar" size={19} color="#1769E0" />
+                    </View>
+                    <Text style={styles.rateLabel}>{label}</Text>
+                    <View style={styles.priceRow}>
+                      <Text style={styles.price}>{formatPrice(price)}</Text>
+                      <Text style={styles.period}>{period}</Text>
+                    </View>
+                  </View>
+                ))}
               </View>
 
-              <Text style={styles.featureValue}>
-                {apartment.bathrooms}
-              </Text>
-
-              <Text style={styles.featureLabel}>
-                Bathroom
-                {apartment.bathrooms !== 1 ? "s" : ""}
-              </Text>
-            </View>
-
-            <View style={styles.featureDivider} />
-
-            <View style={styles.feature}>
-              <View style={styles.featureIcon}>
-                <Feather
-                  name="check-circle"
-                  size={20}
-                  color="#16A34A"
-                />
-              </View>
-
-              <Text style={styles.featureValue}>
-                Ready
-              </Text>
-
-              <Text style={styles.featureLabel}>
-                To Move In
+              <Text style={styles.sectionTitle}>About this apartment</Text>
+              <Text style={styles.description}>
+                {apartment.description ||
+                  "Spacious apartment with a comfortable living area."}
               </Text>
             </View>
           </View>
-
-          {/* DESCRIPTION */}
-          <Text style={styles.sectionTitle}>
-            About This Apartment
-          </Text>
-
-          <View style={styles.descriptionCard}>
-            <Text style={styles.description}>
-              {apartment.description ||
-                "A comfortable and well-maintained apartment suitable for tenants looking for a convenient place to live."}
-            </Text>
-          </View>
-
-          {/* LOCATION */}
-          <Text style={styles.sectionTitle}>
-            Location
-          </Text>
-
-          <View style={styles.locationCard}>
-            <View style={styles.locationIcon}>
-              <Feather
-                name="map-pin"
-                size={23}
-                color="#2563EB"
-              />
-            </View>
-
-            <View style={styles.locationInfo}>
-              <Text style={styles.locationTitle}>
-                Apartment Location
-              </Text>
-
-              <Text style={styles.locationValue}>
-                {apartment.location}
-              </Text>
-            </View>
-
-            <Feather
-              name="chevron-right"
-              size={20}
-              color="#999"
-            />
-          </View>
-
-          {/* SPACE FOR FIXED BOOKING BAR */}
-          <View
-            style={{
-              height: 115 + insets.bottom,
-            }}
-          />
         </View>
       </ScrollView>
 
-      {/* BOTTOM BOOKING BAR */}
-      <View
-        style={[
-          styles.bottomBar,
-          {
-            paddingBottom: Math.max(insets.bottom + 10, 18),
-          },
-        ]}
-      >
-        <View style={styles.bottomPrice}>
-          <Text style={styles.bottomPriceLabel}>
-            Monthly Rent
-          </Text>
-
-          <Text style={styles.bottomPriceValue}>
-            ₱{Number(apartment.price).toLocaleString()}
-          </Text>
+      <View style={styles.bottomBar}>
+        <View>
+          <Text style={styles.startingText}>Starting from</Text>
+          <View style={styles.bottomPriceRow}>
+            <Text style={styles.bottomPrice}>{formatPrice(dailyRate)}</Text>
+            <Text style={styles.bottomPeriod}>/day</Text>
+          </View>
         </View>
 
         <TouchableOpacity
           style={styles.bookButton}
+          onPress={() => navigation.navigate("Booking", { apartment })}
           activeOpacity={0.85}
-          onPress={() =>
-            navigation.navigate("Booking", {
-              apartment,
-            })
-          }
         >
-          <Text style={styles.bookButtonText}>
-            Book Apartment
-          </Text>
-
-          <Feather
-            name="arrow-right"
-            size={20}
-            color="#FFFFFF"
-          />
+          <Text style={styles.bookButtonText}>Book Apartment</Text>
+          <Feather name="arrow-right" size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
     </View>
@@ -401,400 +200,281 @@ export default function ApartmentDetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F7F9FC",
+    backgroundColor: "#F4F7FC",
   },
-
   scrollContent: {
-    paddingBottom: 20,
+    flexGrow: 1,
+    paddingBottom: 100,
   },
-
-  /* =========================
-     IMAGE GALLERY
-  ========================= */
-
-  galleryContainer: {
+  page: {
     width: "100%",
-    height: 290,
-    backgroundColor: "#E5E7EB",
+    maxWidth: 1200,
+    alignSelf: "center",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  topBar: {
+    height: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pageTitle: {
+    fontSize: 21,
+    fontWeight: "800",
+    color: "#17243A",
+  },
+  headerSpacer: {
+    width: 44,
+  },
+  mainLayout: {
+    width: "100%",
+  },
+  mainLayoutWeb: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 24,
+  },
+  leftColumn: {
+    width: "100%",
+  },
+  leftColumnWeb: {
+    flex: 1.45,
+    maxWidth: 680,
+  },
+  imageContainer: {
+    width: "100%",
+    height: 365,
+    borderRadius: 26,
+    overflow: "hidden",
+    backgroundColor: "#E8EDF5",
     position: "relative",
   },
-
-  galleryImage: {
-    width: width,
-    height: 290,
+  mainImage: {
+    width: "100%",
+    height: "100%",
   },
-
-  imageLoading: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  loadingText: {
-    marginTop: 10,
-    color: "#666",
-    fontSize: 13,
-  },
-
-  noImageContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  noImageText: {
-    marginTop: 10,
-    color: "#777",
-    fontSize: 14,
-  },
-
-  backButton: {
+  availableBadge: {
     position: "absolute",
-    top: 18,
-    left: 18,
-    width: 45,
-    height: 45,
-    borderRadius: 23,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 4,
-  },
-
-  imageCounter: {
-    position: "absolute",
-    right: 18,
-    top: 18,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-
-  imageCounterText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  dotsContainer: {
-    position: "absolute",
-    bottom: 15,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
-  },
-
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.55)",
-  },
-
-  activeDot: {
-    width: 22,
+    top: 16,
+    left: 16,
+    height: 39,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     backgroundColor: "#FFFFFF",
-  },
-
-  /* =========================
-     MAIN CONTENT
-  ========================= */
-
-  content: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-  },
-
-  titleSection: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
+    gap: 7,
   },
-
-  titleTextContainer: {
+  greenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#20B86B",
+  },
+  availableText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#243047",
+  },
+  thumbnailList: {
+    paddingTop: 10,
+    paddingBottom: 2,
+    gap: 9,
+  },
+  thumbnailWrapper: {
+    width: 82,
+    height: 63,
+    borderRadius: 13,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  thumbnailSelected: {
+    borderColor: "#1769E0",
+  },
+  thumbnail: {
+    width: "100%",
+    height: "100%",
+  },
+  rightColumn: {
+    width: "100%",
+    marginTop: 22,
+  },
+  rightColumnWeb: {
     flex: 1,
-    paddingRight: 10,
+    marginTop: 0,
+    maxWidth: 480,
   },
-
-  title: {
-    fontSize: 27,
+  apartmentTitle: {
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: "800",
-    color: "#172033",
+    color: "#17243A",
+    marginBottom: 5,
   },
-
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    gap: 7,
+    marginBottom: 13,
   },
-
-  location: {
-    marginLeft: 6,
-    color: "#6B7280",
+  locationText: {
     fontSize: 14,
+    color: "#7D899D",
   },
-
-  availableBadge: {
-    backgroundColor: "#EAF8EF",
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 20,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  availableDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "#16A34A",
-    marginRight: 6,
-  },
-
-  availableText: {
-    color: "#15803D",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-
-  /* =========================
-     PRICE
-  ========================= */
-
-  priceCard: {
-    marginTop: 20,
-    padding: 18,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    elevation: 2,
-  },
-
-  priceLabel: {
-    color: "#8A92A3",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginTop: 3,
-  },
-
-  currency: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#2563EB",
-  },
-
-  price: {
-    fontSize: 25,
-    fontWeight: "800",
-    color: "#172033",
-    marginLeft: 2,
-  },
-
-  month: {
-    color: "#8A92A3",
-    fontSize: 12,
-    marginLeft: 5,
-  },
-
-  priceIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 15,
-    backgroundColor: "#EFF6FF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  /* =========================
-     SECTION TITLES
-  ========================= */
-
-  sectionTitle: {
-    marginTop: 24,
-    marginBottom: 11,
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#172033",
-  },
-
-  /* =========================
-     PROPERTY FEATURES
-  ========================= */
-
   featuresCard: {
+    height: 108,
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    paddingVertical: 17,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: "#E3E8F0",
     flexDirection: "row",
     alignItems: "center",
-    elevation: 2,
+    paddingHorizontal: 6,
+    marginBottom: 17,
   },
-
   feature: {
     flex: 1,
     alignItems: "center",
-  },
-
-  featureIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: "#EFF6FF",
-    alignItems: "center",
     justifyContent: "center",
-    marginBottom: 7,
   },
-
-  featureValue: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#172033",
-  },
-
-  featureLabel: {
-    marginTop: 2,
-    color: "#8A92A3",
-    fontSize: 10,
-    textAlign: "center",
-  },
-
   featureDivider: {
     width: 1,
-    height: 55,
-    backgroundColor: "#E5E7EB",
+    height: 63,
+    backgroundColor: "#E9EDF3",
   },
-
-  /* =========================
-     DESCRIPTION
-  ========================= */
-
-  descriptionCard: {
-    backgroundColor: "#FFFFFF",
-    padding: 18,
-    borderRadius: 18,
-    elevation: 2,
-  },
-
-  description: {
-    color: "#606978",
-    fontSize: 14,
-    lineHeight: 22,
-  },
-
-  /* =========================
-     LOCATION
-  ========================= */
-
-  locationCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    elevation: 2,
-  },
-
-  locationIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 15,
-    backgroundColor: "#EFF6FF",
+  featureIcon: {
+    width: 41,
+    height: 41,
+    borderRadius: 12,
+    backgroundColor: "#EAF2FF",
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 5,
   },
-
-  locationInfo: {
+  featureNumber: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#17243A",
+  },
+  featureLabel: {
+    fontSize: 11,
+    color: "#8A96AA",
+    marginTop: 1,
+  },
+  sectionTitle: {
+    fontSize: 21,
+    fontWeight: "800",
+    color: "#17243A",
+    marginBottom: 9,
+  },
+  ratesRow: {
+    flexDirection: "row",
+    gap: 9,
+    marginBottom: 19,
+  },
+  rateCard: {
     flex: 1,
-    marginLeft: 13,
+    minHeight: 122,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: "#E3E8F0",
+    padding: 13,
   },
-
-  locationTitle: {
+  rateIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    backgroundColor: "#EAF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  rateLabel: {
     fontSize: 12,
-    color: "#8A92A3",
+    color: "#8A96AA",
     marginBottom: 3,
   },
-
-  locationValue: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#172033",
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
   },
-
-  /* =========================
-     FIXED BOOKING BAR
-  ========================= */
-
+  price: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#1769E0",
+  },
+  period: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#8190A6",
+    marginLeft: 3,
+  },
+  description: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: "#718097",
+    marginBottom: 18,
+  },
   bottomBar: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-
+    minHeight: 50,
+    paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 14,
     backgroundColor: "#FFFFFF",
-
-    paddingHorizontal: 18,
-    paddingTop: 12,
-
     borderTopWidth: 1,
-    borderTopColor: "#E8EBF0",
-
+    borderTopColor: "#E1E6EE",
     flexDirection: "row",
     alignItems: "center",
-
-    elevation: 10,
-
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -3,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-
-    zIndex: 100,
+    justifyContent: "space-between",
   },
-
+  startingText: {
+    fontSize: 12,
+    color: "#8A96AA",
+    marginBottom: 1,
+  },
+  bottomPriceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
   bottomPrice: {
-    flex: 1,
-  },
-
-  bottomPriceLabel: {
-    color: "#8A92A3",
-    fontSize: 10,
-  },
-
-  bottomPriceValue: {
-    color: "#172033",
-    fontSize: 18,
+    fontSize: 25,
     fontWeight: "800",
-    marginTop: 2,
+    color: "#1769E0",
   },
-
+  bottomPeriod: {
+    fontSize: 12,
+    color: "#7D899D",
+    fontWeight: "600",
+    marginLeft: 4,
+  },
   bookButton: {
-    backgroundColor: "#2563EB",
-    height: 52,
-    paddingHorizontal: 20,
-    borderRadius: 16,
+    height: 48,
+    paddingHorizontal: 24,
+    borderRadius: 15,
+    backgroundColor: "#1769E0",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 9,
+    gap: 12,
   },
-
   bookButtonText: {
     color: "#FFFFFF",
     fontSize: 14,
