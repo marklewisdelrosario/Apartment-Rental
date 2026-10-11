@@ -308,15 +308,10 @@ export default function ProfileScreen({ navigation }) {
         return;
       }
 
-      const { error: authError } =
-        await supabase.auth.updateUser(
-          {
-            email: cleanEmail,
-          },
-          {
-            emailRedirectTo: window.location.origin,
-          }
-        );
+      const { error: authError } = await supabase.auth.updateUser(
+        { email: cleanEmail },
+        { emailRedirectTo: `${window.location.origin}/profile` }
+      );
 
       if (authError) {
         showAlert(
