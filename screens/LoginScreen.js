@@ -86,6 +86,7 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+  
   const forgotPassword = async () => {
     const cleanEmail = email.trim().toLowerCase();
 
@@ -105,10 +106,12 @@ export default function LoginScreen({ navigation }) {
     setForgotLoading(true);
 
     try {
+      const redirectUrl = `${window.location.origin}/reset-password`;
+
       const { error } = await supabase.auth.resetPasswordForEmail(
         cleanEmail,
         {
-          redirectTo: window.location.origin,
+          redirectTo: redirectUrl,
         }
       );
 
@@ -119,10 +122,13 @@ export default function LoginScreen({ navigation }) {
 
       showAlert(
         "Reset Email Sent",
-        "If an account exists with this email, a password reset link has been sent."
+        "Check your email for the password reset link."
       );
     } catch {
-      showAlert("Error", "Unable to send the password reset email.");
+      showAlert(
+        "Error",
+        "Unable to send the password reset email. Please try again."
+      );
     } finally {
       setForgotLoading(false);
     }

@@ -9,11 +9,11 @@ import ApartmentDetailsScreen from "./screens/ApartmentDetailsScreen";
 import BookingScreen from "./screens/BookingScreen";
 import PaymentScreen from "./screens/PaymentScreen";
 import ProfileScreen from "./screens/ProfileScreen";
+import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 
 const Stack = createNativeStackNavigator();
 
 const linking = {
-  prefixes: ["http://localhost:8081"],
   config: {
     screens: {
       Login: "",
@@ -23,6 +23,7 @@ const linking = {
       Booking: "booking",
       Payment: "payment",
       Profile: "profile",
+      ResetPassword: "reset-password",
     },
   },
 };
@@ -30,9 +31,7 @@ const linking = {
 export default function App() {
   return (
     <NavigationContainer linking={linking}>
-      <Stack.Navigator
-        initialRouteName="Login"
-        screenOptions={{ headerShown: false }}>
+      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
@@ -40,6 +39,7 @@ export default function App() {
         <Stack.Screen name="Booking" component={BookingScreen} />
         <Stack.Screen name="Payment" component={PaymentScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
